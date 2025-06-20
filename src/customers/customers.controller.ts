@@ -9,6 +9,7 @@ import {
   Param,
   Logger,
   Put,
+  UseGuards,
 } from "@nestjs/common";
 import { CustomersService } from "./customers.service";
 import { CreateCustomerDto } from "./dto/create-customer.dto";
@@ -16,8 +17,10 @@ import { UpdateCustomerDto } from "./dto/update-customer.dto";
 import { ResponseUtil } from "../common/utils/response.util";
 import { ApiResponse } from "../common/interfaces/api-response.interface";
 import { Customer } from "./interfaces/customer.interface";
+import { AuthGuard } from "../auth/guards/auth.guard";
 
 @Controller("customers")
+@UseGuards(AuthGuard)
 export class CustomersController {
   private readonly logger = new Logger(CustomersController.name);
 

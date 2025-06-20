@@ -21,8 +21,8 @@ if (!supabaseUrl || !supabaseKey) {
 // 모든 서비스에서 사용할 Supabase 인스턴스
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
+    autoRefreshToken: true,
+    persistSession: true,
   },
 });
 

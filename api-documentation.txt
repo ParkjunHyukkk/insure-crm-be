@@ -3,13 +3,337 @@
 ## 기본 정보
 - Base URL: http://localhost:3000
 - Content-Type: application/json
+- 인증: JWT Bearer Token 필요 (인증 API 제외)
+
+## 🔐 인증 흐름 가이드
+
+### 1. 회원가입 & 이메일 인증 흐름
+```
+1. POST /auth/register → 이메일 인증 링크 발송
+2. GET /auth/verify-email?token={token} → 이메일 인증 완료
+3. POST /auth/login → 로그인 및 토큰 발급
+```
+
+### 2. 토큰 관리 흐름
+```
+- Access Token 만료 시간: 1시간 (3600초)
+- Refresh Token 만료 시간: 30일
+- 토큰 만료 시 POST /auth/refresh로 재발급
+- GET /auth/token-info로 토큰 상태 확인 가능
+```
+
+### 3. 에러 상황별 대응
+```
+401 Unauthorized → 토큰 만료 또는 유효하지 않음 → 재발급 또는 재로그인
+403 Forbidden → 권한 없음
+422 Validation Error → 요청 데이터 형식 오류
+429 Too Many Requests → Rate Limiting (이메일 발송 등)
+```
+
+### 4. 보안 권장사항
+```
+- Access Token은 localStorage 대신 메모리에 저장
+- Refresh Token은 HttpOnly 쿠키에 저장 권장
+- 민감한 API는 토큰 재검증 구현
+- HTTPS 사용 필수
+```
+
+## 0. 인증 API (Authentication)
+
+### 0.1. 회원가입 (POST /auth/register)
+
+Request:
+POST http://localhost:3000/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "홍길동"
+}
+
+Response Example (이메일 인증 필요):
+{
+  "status": "success",
+  "message": "회원가입이 완료되었습니다.",
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "name": "홍길동",
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "last_sign_in_at": null
+    },
+    "access_token": null,
+    "refresh_token": null,
+    "needEmailVerification": true
+  }
+}
+
+Response Example (바로 로그인 가능):
+{
+  "status": "success", 
+  "message": "회원가입이 완료되었습니다.",
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "name": "홍길동",
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "last_sign_in_at": "2024-01-01T00:00:00.000Z"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "refresh_token_here",
+    "needEmailVerification": false,
+    "expires_at": 1704067200,
+    "expires_in": 3600
+  }
+}
+
+### 0.2. 로그인 (POST /auth/login)
+
+Request:
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+Response Example:
+{
+  "status": "success",
+  "message": "로그인이 완료되었습니다.",
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "name": "홍길동",
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "last_sign_in_at": "2024-01-01T00:00:00.000Z"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "refresh_token_here",
+    "expires_at": 1704067200,
+    "expires_in": 3600
+  }
+}
+
+### 0.3. 로그아웃 (POST /auth/logout)
+
+Request:
+POST http://localhost:3000/auth/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+Response Example:
+{
+  "status": "success",
+  "message": "로그아웃이 완료되었습니다.",
+  "data": null
+}
+
+### 0.4. 프로필 조회 (GET /auth/profile)
+
+Request:
+GET http://localhost:3000/auth/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+Response Example:
+{
+  "status": "success",
+  "message": "프로필 조회가 완료되었습니다.",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "name": "홍길동",
+    "created_at": "2024-01-01T00:00:00.000Z",
+    "last_sign_in_at": "2024-01-01T00:00:00.000Z"
+  }
+}
+
+### 0.5. 프로필 수정 (PUT /auth/profile)
+
+Request:
+PUT http://localhost:3000/auth/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+  "name": "김철수",
+  "password": "newpassword123"
+}
+
+Response Example:
+{
+  "status": "success",
+  "message": "프로필이 업데이트되었습니다.",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "name": "김철수",
+    "created_at": "2024-01-01T00:00:00.000Z",
+    "last_sign_in_at": "2024-01-01T00:00:00.000Z"
+  }
+}
+
+### 0.6. 비밀번호 재설정 요청 (POST /auth/reset-password)
+
+Request:
+POST http://localhost:3000/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+
+Response Example:
+{
+  "status": "success",
+  "message": "비밀번호 재설정 이메일이 발송되었습니다.",
+  "data": null
+}
+
+### 0.7. 이메일 인증 (GET /auth/verify-email)
+
+Request:
+GET http://localhost:3000/auth/verify-email?token={verification_token}
+
+Response Example:
+{
+  "status": "success",
+  "message": "이메일 인증이 완료되었습니다.",
+  "data": {
+    "message": "이메일 인증이 완료되었습니다. 이제 로그인할 수 있습니다."
+  }
+}
+
+### 0.8. 인증 이메일 재전송 (POST /auth/resend-verification)
+
+Request:
+POST http://localhost:3000/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+
+Response Example:
+{
+  "status": "success",
+  "message": "인증 이메일이 재전송되었습니다.",
+  "data": {
+    "message": "인증 이메일이 재전송되었습니다. 이메일을 확인해주세요."
+  }
+}
+
+### 0.9. 토큰 재발급 (POST /auth/refresh)
+
+Request:
+POST http://localhost:3000/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "refresh_token_here"
+}
+
+Response Example:
+{
+  "status": "success",
+  "message": "토큰이 재발급되었습니다.",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "new_refresh_token_here",
+    "expires_at": 1704067200,
+    "expires_in": 3600,
+    "token_type": "Bearer"
+  }
+}
+
+### 0.10. 토큰 정보 조회 (GET /auth/token-info)
+
+Request:
+GET http://localhost:3000/auth/token-info
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+Response Example:
+{
+  "status": "success",
+  "message": "토큰 정보 조회가 완료되었습니다.",
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "name": "홍길동",
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "last_sign_in_at": "2024-01-01T00:00:00.000Z"
+    },
+    "expires_at": 1704067200,
+    "expires_in": 3600
+  }
+}
+
+### 0.11. 사용자 설정 API
+
+#### 0.11.1. 사용자 설정 조회 (GET /user-settings)
+
+Request:
+GET http://localhost:3000/user-settings
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+Response Example:
+{
+  "status": "success",
+  "message": "사용자 설정 조회가 완료되었습니다.",
+  "data": {
+    "id": "setting_001",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "notify_signup": true,
+    "notify_maturity": true,
+    "notify_birthday": true,
+    "preferred_channel": "kakao",
+    "created_at": "2024-01-01T00:00:00.000Z"
+  }
+}
+
+#### 0.11.2. 사용자 설정 수정 (PUT /user-settings)
+
+Request:
+PUT http://localhost:3000/user-settings
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+  "notify_signup": false,
+  "notify_maturity": true,
+  "notify_birthday": false,
+  "preferred_channel": "email"
+}
+
+Response Example:
+{
+  "status": "success",
+  "message": "사용자 설정이 업데이트되었습니다.",
+  "data": {
+    "id": "setting_001",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "notify_signup": false,
+    "notify_maturity": true,
+    "notify_birthday": false,
+    "preferred_channel": "email",
+    "created_at": "2024-01-01T00:00:00.000Z"
+  }
+}
 
 ## 1. 고객 관리 API
+
+⚠️ **모든 고객 관리 API는 인증이 필요합니다. Authorization 헤더에 Bearer 토큰을 포함해야 합니다.**
 
 ### 1.1. 고객 목록 조회 (GET /customers)
 
 Request:
 GET http://localhost:3000/customers
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Response Example:
 {
@@ -43,6 +367,7 @@ Response Example:
 
 Request:
 GET http://localhost:3000/customers/cust_001
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Response Example:
 {
@@ -64,6 +389,7 @@ Response Example:
 
 Request:
 POST http://localhost:3000/customers
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
@@ -96,6 +422,7 @@ Response Example:
 
 Request:
 PUT http://localhost:3000/customers/cust_003
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
@@ -124,6 +451,7 @@ Response Example:
 
 Request:
 DELETE http://localhost:3000/customers/cust_003
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Response Example:
 {
@@ -134,10 +462,13 @@ Response Example:
 
 ## 2. 계약 관리 API
 
+⚠️ **모든 계약 관리 API는 인증이 필요합니다. Authorization 헤더에 Bearer 토큰을 포함해야 합니다.**
+
 ### 2.1. 계약 목록 조회 (GET /contracts)
 
 Request:
 GET http://localhost:3000/contracts
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Response Example:
 {
@@ -163,6 +494,7 @@ Response Example:
 
 Request:
 GET http://localhost:3000/contracts/cont_001
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Response Example:
 {
@@ -180,11 +512,12 @@ Response Example:
 
 Request:
 POST http://localhost:3000/contracts
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-  "customerId": "cust_001",
-  "details": "실손의료보험 - 월 납입금 10만원"
+  "customerId": "cust_003",
+  "details": "건강보험 - 월 납입금 30만원"
 }
 
 Response Example:
@@ -193,32 +526,32 @@ Response Example:
   "message": "계약 생성 성공",
   "data": {
     "id": "cont_003",
-    "customerId": "cust_001",
-    "details": "실손의료보험 - 월 납입금 10만원",
-    "created_at": "2024-03-20T09:30:00.000Z"
+    "customerId": "cust_003",
+    "details": "건강보험 - 월 납입금 30만원",
+    "created_at": "2024-03-20T00:00:00.000Z"
   }
 }
 
-### 2.4. 계약 수정 (PATCH /contracts/{id})
+### 2.4. 계약 정보 수정 (PATCH /contracts/{id})
 
 Request:
 PATCH http://localhost:3000/contracts/cont_003
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-  "details": "실손의료보험 - 월 납입금 12만원 (금액 변경)"
+  "details": "건강보험 - 월 납입금 35만원 (보장범위 확대)"
 }
 
 Response Example:
 {
   "status": "success",
-  "message": "계약 수정 성공",
+  "message": "계약 정보 수정 성공",
   "data": {
     "id": "cont_003",
-    "customerId": "cust_001",
-    "details": "실손의료보험 - 월 납입금 12만원 (금액 변경)",
-    "created_at": "2024-03-20T09:30:00.000Z",
-    "updated_at": "2024-03-20T10:15:00.000Z"
+    "customerId": "cust_003",
+    "details": "건강보험 - 월 납입금 35만원 (보장범위 확대)",
+    "created_at": "2024-03-20T00:00:00.000Z"
   }
 }
 
@@ -226,6 +559,7 @@ Response Example:
 
 Request:
 DELETE http://localhost:3000/contracts/cont_003
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Response Example:
 {
@@ -234,47 +568,69 @@ Response Example:
   "data": null
 }
 
-## 에러 응답 예시
+## 인증 에러 응답
 
-### 1. 리소스를 찾을 수 없는 경우
+### 401 Unauthorized
 {
   "status": "error",
-  "message": "고객을 찾을 수 없습니다.",
+  "message": "토큰이 필요합니다.",
   "data": null
 }
 
-### 2. 유효성 검사 실패
 {
   "status": "error",
-  "message": "유효성 검사 실패",
-  "data": {
-    "errors": [
-      {
-        "field": "phone",
-        "message": "올바른 전화번호 형식이 아닙니다."
-      },
-      {
-        "field": "birth_date",
-        "message": "생년월일은 필수 입력 항목입니다."
-      }
-    ]
-  }
+  "message": "유효하지 않은 토큰입니다.",
+  "data": null
 }
 
-### 3. 서버 에러
 {
   "status": "error",
-  "message": "내부 서버 오류가 발생했습니다.",
+  "message": "이메일 또는 비밀번호가 올바르지 않습니다.",
+  "data": null
+}
+
+### 409 Conflict
+{
+  "status": "error",
+  "message": "이미 등록된 이메일입니다.",
   "data": null
 }
 
 ## Curl 예시
 
-고객 목록 조회:
-curl -X GET http://localhost:3000/customers
+인증 API:
+```bash
+# 회원가입
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123",
+    "name": "홍길동"
+  }'
 
-고객 생성:
+# 로그인
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123"
+  }'
+
+# 프로필 조회
+curl -X GET http://localhost:3000/auth/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+고객 API (인증 필요):
+```bash
+# 고객 목록 조회
+curl -X GET http://localhost:3000/customers \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# 고객 생성
 curl -X POST http://localhost:3000/customers \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "이영희",
@@ -285,22 +641,31 @@ curl -X POST http://localhost:3000/customers \
     "auto_payment": true,
     "memo": "신규 고객"
   }'
+```
 
 ## 참고사항
 
-1. 모든 날짜/시간은 ISO 8601 형식으로 반환됩니다.
+1. **인증 토큰**: 로그인 또는 회원가입 후 받은 access_token을 Authorization 헤더에 포함해야 합니다.
+   ```
+   Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   ```
 
-2. 페이지네이션이 필요한 경우 다음과 같은 쿼리 파라미터를 사용할 수 있습니다:
+2. **토큰 만료**: JWT 토큰은 일정 시간 후 만료됩니다. 만료 시 다시 로그인해야 합니다.
+
+3. **회원가입**: 이메일 인증 기능은 현재 비활성화되어 있어 즉시 사용 가능합니다.
+
+4. **사용자 설정**: 회원가입 시 기본 알림 설정이 자동으로 생성됩니다.
+
+5. **모든 날짜/시간은 ISO 8601 형식으로 반환됩니다.**
+
+6. **페이지네이션이 필요한 경우 다음과 같은 쿼리 파라미터를 사용할 수 있습니다:**
    - page: 페이지 번호 (기본값: 1)
    - limit: 페이지당 항목 수 (기본값: 10)
    예시: GET /customers?page=2&limit=20
 
-3. 검색 및 필터링이 필요한 경우 다음과 같은 쿼리 파라미터를 사용할 수 있습니다:
+7. **검색 및 필터링이 필요한 경우 다음과 같은 쿼리 파라미터를 사용할 수 있습니다:**
    - search: 검색어
    - filter: 필터 조건
    예시: GET /customers?search=홍길동&filter=auto_payment:true
-
-4. 모든 API 요청에는 적절한 인증 헤더가 필요할 수 있습니다:
-   Authorization: Bearer <your_access_token>
 
 이 API 명세서는 실제 구현된 기능을 기준으로 작성되었으며, 추가적인 기능이나 변경사항이 있을 수 있습니다. 

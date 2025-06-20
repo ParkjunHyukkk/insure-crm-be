@@ -5,7 +5,7 @@ import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 // .env 파일 로드
 import "dotenv/config";
-import { Logger } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 
 async function bootstrap() {
   // 로깅 레벨을 debug로 설정
@@ -13,11 +13,29 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ["debug", "error", "warn", "log"],
   });
+
   // 전역으로 예외 필터를 적용합니다.
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  // 전역 유효성 검사 파이프를 적용합니다.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    })
+  );
+
+  // CORS 설정
+  app.enableCors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,
+  });
+
   const port = process.env.PORT || 3000;
   await app.listen(port);
   logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`Auth endpoints available at: http://localhost:${port}/auth`);
 }
 
 bootstrap();
