@@ -26,10 +26,23 @@ async function bootstrap() {
     })
   );
 
-  // CORS 설정
+  // CORS 설정 - 개발 환경에서 유연하게 설정
+  const frontendUrls = [
+    process.env.FRONTEND_URL || "http://localhost:3001",
+    "http://localhost:3000", // 백엔드 자체 테스트
+    "http://localhost:3001", // 일반적인 React 개발 서버
+    "http://localhost:5173", // Vite 개발 서버
+    "http://localhost:4200", // Angular 개발 서버
+  ];
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin:
+      process.env.NODE_ENV === "production"
+        ? process.env.FRONTEND_URL
+        : frontendUrls,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   const port = process.env.PORT || 3000;

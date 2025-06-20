@@ -48,6 +48,8 @@ NestJS-based CRM API using Supabase as the data store with JWT authentication.
 
 ## Development
 
+### Local Development
+
 Install dependencies and start the dev server:
 
 ```bash
@@ -55,21 +57,47 @@ npm install
 npm run start:dev
 ```
 
+### Docker Development
+
+For frontend testing with Docker:
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f insure-crm-api
+
+# Stop services
+docker-compose down
+```
+
+See `DOCKER_GUIDE.md` for detailed Docker setup instructions.
+
 ## Environment Variables
 
-Create a `.env` file with the following values:
+⚠️ **보안 주의**: 실제 API 키는 절대 Git 저장소에 올리지 마세요!
 
-```env
-# Supabase Configuration
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_anon_key
+1. **환경변수 파일 설정**:
 
-# Optional: Frontend URL for CORS and redirects
-FRONTEND_URL=http://localhost:3000
+   ```bash
+   # 프로젝트 루트에 .env 파일 생성
+   touch .env
+   ```
 
-# Optional: Server Port
-PORT=3000
-```
+2. **`.env` 파일을 열어서 실제 값들로 수정**:
+
+   ```env
+   # Supabase Configuration
+   SUPABASE_URL=https://your-actual-project.supabase.co
+   SUPABASE_KEY=your_actual_supabase_anon_key_here
+
+   # Optional: Frontend URL for CORS and redirects
+   FRONTEND_URL=http://localhost:3000
+
+   # Optional: Server Port
+   PORT=3000
+   ```
 
 ## Authentication Setup
 
